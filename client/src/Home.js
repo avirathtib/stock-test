@@ -1,13 +1,21 @@
 import "./App.css";
-
+import {store, useGlobalState} from 'state-pool';
 import Details from "./Details";
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useContext , useLayoutEffect} from "react";
 import { TickerSymbolSearch } from "ticker-symbol-search";
 import yahooFinance from "yahoo-finance2";
 import axios from "./axios";
+import { Redirect } from 'react-router';
+import SearchBar from "./SearchBar";
+import { TickerContext } from "./App";
+import { UserContext } from "./App";
+import { Link, useHistory } from "react-router-dom"
+import { Card, Button, Alert } from "react-bootstrap"
+import { useAuth } from "./contexts/AuthContext"
+import {db} from "./firebase"
 
 const stocks = require("stock-ticker-symbol");
-
 
 const customTheme = {
   paper: {
@@ -34,23 +42,71 @@ const customTheme = {
 
 function Home() {
   const [stock, setStock] = useState(null);
-  const [ticker, setTicker] = useState("");
+  const {ticker, setTicker} = useContext(TickerContext);
+  const {email, setEmail} = useContext(UserContext);
+  const [tickerquery, setTickerquery] = useState("");
   const [title, setTitle] = useState("");
   const [runwatchlist, setRunwatchlist] = useState(false);
   const [stocklist, setStocklist] = useState([
     { _id: "", title: "", ticker: "", __v: 0 },
   ]);
   const [buyPrice, setBuyPrice] = useState(0);
+  const [newstocklist, setNewStocklist] = useState([
+    {title: '21Vianet Group, Inc.', ticker: 'VNET'}
+   
+  ]);
+
+  const { currentUser, logout } = useAuth()
+  const history = useHistory()
+  const [error, setError] = useState("")
+
+  async function handleLogout() {
+    setError("")
+
+    try {
+      await logout()
+      history.push("/login")
+    } catch {
+      setError("Failed to log out")
+    }
+  }
+
 
   const gain = 0;
 
+ 
+
+  
+  
   useEffect(() => {
-    fetch("http://localhost:5000")
-      .then((res) => res.json())
-      .then((res) => {
-        setStocklist(res);
-      });
-  }, [runwatchlist]);
+    getUserWatchlist(email);
+  },[]);
+
+  
+
+  async function getUserWatchlist(email) {
+    const query = await db.collection('users').where('email', '==', email).get();
+    if(!query.empty) {
+      const list = db.collection('users').doc(query.docs[0].id).collection("watchlist").get().then(function(querySnapshot) {
+        querySnapshot.forEach(function(doc) { 
+          console.log(doc.data())
+          console.log(newstocklist)
+         setNewStocklist([...newstocklist, doc.data()])
+          
+          
+        })
+       });
+      
+    } 
+
+  }
+  
+ 
+
+   const listItems = newstocklist.map((stockname) =>
+   <li>{stockname.title} : {stockname.ticker}</li> 
+);
+   
 
   const clickHandler = () => {
     fetch(
@@ -59,6 +115,8 @@ function Home() {
       .then((res) => res.json())
       .then((res) => {
         setStock(res.c);
+
+       <Redirect to={ticker}/>
       })
       .catch((err) => {
         console.log(err);
@@ -102,19 +160,23 @@ function Home() {
       .then(function (response) {
         console.log(response);
       });
+     
   };
 
+  
+
   return (
+    
     <div className="App">
-      <TickerSymbolSearch
-        callback={(data) => {
-          setTicker(data.symbol.substring(4, data.symbol.length - 5));
-          setTitle(data.description);
-        }}
-        theme={customTheme} // optional
+
+      <SearchBar placeholder="Enter a Stock.." 
       />
+ 
       <h1> We're going to win </h1>
+      <p>{email}</p>
       <button onClick={clickHandler}>Click Me Now Please</button>
+      <p>{ticker}</p>
+      <Link to={`/${ticker}`}>View Stock</Link>
       <p>{stock}</p>
       <button onClick={clickBuyHandler}>Buy</button>
       <button onClick={clickSellHandler}>Sell</button>
@@ -123,18 +185,23 @@ function Home() {
         <p>Add to watchlist</p>
         <button onClick={addWatchlistHandler}>+</button>
       </div>
-      {!(stocklist.length === 0) &&
-        stocklist.map((stock) => {
-          return (
-            <div>
-              <p>{stock.title}</p>
-              <p>{stock.ticker}</p>
-            </div>
-          );
-        })}
+      <div>
+    {listItems}
+    
+     </div>
+     <div>
+             <Link to={`/profile`}>Profile</Link>
+
+
+        <Button variant="link" onClick={handleLogout}>
+          Log Out
+        </Button>
+    </div>
     </div>
   );
 }
 
 export default Home;
 
+
+      
