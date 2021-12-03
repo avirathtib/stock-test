@@ -10,6 +10,7 @@ import styled from "styled-components";
 import CloseButton from "./components/CloseModalButton";
 import x from "./images/x.png";
 import UserInput from "./components/UserInput";
+import { Button } from "react-bootstrap";
 
 const stocks = require("stock-ticker-symbol");
 
@@ -43,6 +44,16 @@ const AddUserTitle = styled.h1`
   text-align: center;
 `;
 
+const AddUserPara = styled.h3`
+  width: 100%;
+  font-size: 1.5em;
+  margin: 0px;
+  color: #080f14;
+  text-align: left;
+`;
+
+
+
 const AddUserLabel = styled.p`
   margin-bottom: 2px;
 `;
@@ -54,7 +65,9 @@ function Details() {
   const [numberOfShares, setNumberOfShares] = useState(0);
   const [runwatchlist, setRunwatchlist] = useState(false);
   const [buyPrice, setBuyPrice] = useState(0);
+  const [SellPrice, setSellPrice] = useState(0);
   const [latestPrice, setLatestPrice] = useState(0);
+  const[openbuy , setOpenBuy] = useState(false);
   const url =
     "https://finnhub.io/api/v1/quote?symbol=AAPL&token=c5saqfaad3ia8bfblt0g";
 
@@ -106,16 +119,57 @@ function Details() {
 
   const clickSellHandler = () => {
     fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${id}&token=c5saqfaad3ia8bfblt0g`
+      `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
     )
       .then((res) => res.json())
       .then((res) => {
-        console.log(res.c - buyPrice);
+        setSellPrice(res.c);
+       
       })
       .catch((err) => {
         console.log(err);
       });
   };
+
+  const addBuyHistoryHandler = async () => {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    
+    const addQuery = await db
+      .collection("users")
+      .doc(query.docs[0].id)
+      .collection("buyhistory")
+      .add({
+        title: id,
+        ticker: ticker,
+        quantity : numberOfShares,
+        pricePerShare : buyPrice,
+        totalPrice : numberOfShares*buyPrice,
+      });
+  };
+
+  const addSellHistoryHandler = async () => {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    
+    const addQuery = await db
+      .collection("users")
+      .doc(query.docs[0].id)
+      .collection("sellhistory")
+      .add({
+        title: id,
+        ticker: ticker,
+        quantity : numberOfShares,
+        pricePerShare : SellPrice,
+        totalPrice : numberOfShares*SellPrice,
+      });
+  };
+
+
 
   return (
     <div>
@@ -124,14 +178,20 @@ function Details() {
       <StockChart id={id} />
       <button
         onClick={() => {
+          setOpenBuy (true);
           clickBuyHandler();
           openNewUserModal();
         }}
       >
         Buy
       </button>
-      <button onClick={clickSellHandler}>Sell</button>
+      <button onClick={() => {
+        setOpenBuy(false);
+        clickSellHandler();
+        openNewUserModal();
+        }}>Sell</button>
       <BuySellModal
+     
         isOpen={showNewUserModal}
         onRequestClose={closeNewUserModal}
         style={{
@@ -152,13 +212,17 @@ function Details() {
           },
         }}
       >
+
+{openbuy ? (
+  
         <AddUserDiv>
+          
           <CloseButton onClick={() => closeNewUserModal()}>
             <CloseButtonImg src={x} />
           </CloseButton>
           <AddUserTitle>Confirmation to Buy</AddUserTitle>
           <UserInputDiv>
-            <AddUserLabel>Shares to buy</AddUserLabel>
+            <AddUserLabel>How many shares of {id} do you wish to buy at {buyPrice} each?</AddUserLabel>
             <UserInput
               value={numberOfShares}
               onChange={(e) => {
@@ -167,11 +231,36 @@ function Details() {
             />
           </UserInputDiv>
           <UserInputDiv>
-            <p>
-              Do you wish to buy shares of {id} at {buyPrice}
-            </p>
+         
           </UserInputDiv>
+          <AddUserPara>Total Price : {numberOfShares*buyPrice}</AddUserPara>
+          <Button onClick = {addBuyHistoryHandler}>Confirm buy</Button>
         </AddUserDiv>
+    ) : (
+     
+      <AddUserDiv>
+          {console.log(SellPrice)}
+          <CloseButton onClick={() => closeNewUserModal()}>
+            <CloseButtonImg src={x} />
+          </CloseButton>
+          <AddUserTitle>Confirmation to Sell</AddUserTitle>
+          <UserInputDiv>
+            <AddUserLabel>How many shares of {id} do you wish to sell at {SellPrice} each?</AddUserLabel>
+            <UserInput
+              value={numberOfShares}
+              onChange={(e) => {
+                setNumberOfShares(e.target.value);
+              }}
+            />
+          </UserInputDiv>
+          <UserInputDiv>
+          
+          </UserInputDiv>
+          <AddUserPara>Total Price : {numberOfShares*SellPrice}</AddUserPara>
+          <Button onClick = {addSellHistoryHandler}>Confirm sell</Button>
+        </AddUserDiv>
+
+  )}
       </BuySellModal>
     </div>
   );
