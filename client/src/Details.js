@@ -9,6 +9,7 @@ import BuySellModal from "./components/BuySellModal";
 import styled from "styled-components";
 import CloseButton from "./components/CloseModalButton";
 import x from "./images/x.png";
+import firebase from "firebase";
 import UserInput from "./components/UserInput";
 import { Button } from "react-bootstrap";
 
@@ -52,8 +53,6 @@ const AddUserPara = styled.h3`
   text-align: left;
 `;
 
-
-
 const AddUserLabel = styled.p`
   margin-bottom: 2px;
 `;
@@ -61,13 +60,16 @@ const AddUserLabel = styled.p`
 function Details() {
   const { ticker, setTicker } = useContext(TickerContext);
   const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [shareOwned, setShareOwned] = useState(false);
+  const [numberOfSharesOwned, setNumberOfSharesOwned] = useState(0);
   const { email, setEmail } = useContext(UserContext);
   const [numberOfShares, setNumberOfShares] = useState(0);
-  const [runwatchlist, setRunwatchlist] = useState(false);
+  const [numberOfSellShares, setNumberOfSellShares] = useState(0);
+  const [showSellError, setShowSellError] = useState(false);
   const [buyPrice, setBuyPrice] = useState(0);
   const [SellPrice, setSellPrice] = useState(0);
   const [latestPrice, setLatestPrice] = useState(0);
-  const[openbuy , setOpenBuy] = useState(false);
+  const [openbuy, setOpenBuy] = useState(false);
   const url =
     "https://finnhub.io/api/v1/quote?symbol=AAPL&token=c5saqfaad3ia8bfblt0g";
 
@@ -76,6 +78,8 @@ function Details() {
   useEffect(() => {
     console.log(email);
     setTicker(stocks.searchName(id)[0].ticker);
+    checkOwnership();
+    // everyBuyUpdate();
   }, []);
 
   function openNewUserModal() {
@@ -124,7 +128,6 @@ function Details() {
       .then((res) => res.json())
       .then((res) => {
         setSellPrice(res.c);
-       
       })
       .catch((err) => {
         console.log(err);
@@ -132,66 +135,148 @@ function Details() {
   };
 
   const addBuyHistoryHandler = async () => {
+    everyBuyUpdate();
     const query = await db
       .collection("users")
       .where("email", "==", email)
       .get();
-    
-    const addQuery = await db
+
+    if (!shareOwned) {
+      const addNewQuery = await db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("buyhistory")
+        .doc(ticker)
+        .set({
+          title: id,
+          ticker: ticker,
+          quantity: Number(numberOfShares),
+          pricePerShare: buyPrice,
+          totalPrice: numberOfShares * buyPrice,
+        });
+      setShareOwned(true);
+    } else {
+      const updateOldQuery = await db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("buyhistory")
+        .doc(ticker)
+        .update({
+          quantity: numberOfSharesOwned + Number(numberOfShares),
+          pricePerShare:
+            (latestPrice * numberOfSharesOwned +
+              Number(numberOfShares) * buyPrice) /
+            (numberOfSharesOwned + Number(numberOfShares)),
+          totalPrice:
+            latestPrice * numberOfSharesOwned + numberOfShares * buyPrice,
+        });
+    }
+  };
+
+  async function checkOwnership() {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+
+    const checkQuery = await db
       .collection("users")
       .doc(query.docs[0].id)
       .collection("buyhistory")
-      .add({
-        title: id,
-        ticker: ticker,
-        quantity : numberOfShares,
-        pricePerShare : buyPrice,
-        totalPrice : numberOfShares*buyPrice,
+      .get()
+      .then(function (querySnapshot) {
+        console.log(query.docs[0].id);
+        querySnapshot.forEach(function (doc) {
+          if (doc.data().title == id) {
+            setShareOwned(true);
+          }
+        });
       });
-  };
+  }
+
+  async function everyBuyUpdate() {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+
+    const checkQuery = await db
+      .collection("users")
+      .doc(query.docs[0].id)
+      .collection("buyhistory")
+      .get()
+      .then(function (querySnapshot) {
+        console.log(query.docs[0].id);
+        querySnapshot.forEach(function (doc) {
+          if (doc.data().title == id) {
+            setNumberOfSharesOwned(doc.data().quantity);
+            console.log(numberOfSharesOwned);
+            setLatestPrice(doc.data().pricePerShare);
+            console.log(latestPrice);
+          }
+        });
+      });
+  }
 
   const addSellHistoryHandler = async () => {
     const query = await db
       .collection("users")
       .where("email", "==", email)
       .get();
-    
-    const addQuery = await db
+
+    const updateOldQuery = await db
       .collection("users")
       .doc(query.docs[0].id)
-      .collection("sellhistory")
-      .add({
-        title: id,
-        ticker: ticker,
-        quantity : numberOfShares,
-        pricePerShare : SellPrice,
-        totalPrice : numberOfShares*SellPrice,
+      .collection("buyhistory")
+      .doc(ticker)
+      .update({
+        quantity: numberOfSharesOwned - Number(numberOfSellShares),
+        totalPrice:
+          latestPrice * (numberOfSharesOwned - Number(numberOfSellShares)),
       });
   };
-
-
 
   return (
     <div>
       <h2>your expected id : {id}</h2>
       <button onClick={addWatchlistHandler}>add to watchlist</button>
       <StockChart id={id} />
-      <button
-        onClick={() => {
-          setOpenBuy (true);
-          clickBuyHandler();
-          openNewUserModal();
-        }}
-      >
-        Buy
-      </button>
-      <button onClick={() => {
-        setOpenBuy(false);
-        clickSellHandler();
-        openNewUserModal();
-        }}>Sell</button>
+      {console.log(shareOwned)}
+      {shareOwned ? (
+        <div>
+          <button
+            onClick={() => {
+              setOpenBuy(true);
+              clickBuyHandler();
+              openNewUserModal();
+            }}
+          >
+            Buy
+          </button>
+          <button
+            onClick={() => {
+              setOpenBuy(false);
+              clickSellHandler();
+              openNewUserModal();
+              everyBuyUpdate();
+            }}
+          >
+            Sell
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setOpenBuy(true);
+            clickBuyHandler();
+            openNewUserModal();
+          }}
+        >
+          Buy
+        </button>
+      )}
+
       <BuySellModal
-     
         isOpen={showNewUserModal}
         onRequestClose={closeNewUserModal}
         style={{
@@ -212,55 +297,63 @@ function Details() {
           },
         }}
       >
-
-{openbuy ? (
-  
-        <AddUserDiv>
-          
-          <CloseButton onClick={() => closeNewUserModal()}>
-            <CloseButtonImg src={x} />
-          </CloseButton>
-          <AddUserTitle>Confirmation to Buy</AddUserTitle>
-          <UserInputDiv>
-            <AddUserLabel>How many shares of {id} do you wish to buy at {buyPrice} each?</AddUserLabel>
-            <UserInput
-              value={numberOfShares}
-              onChange={(e) => {
-                setNumberOfShares(e.target.value);
-              }}
-            />
-          </UserInputDiv>
-          <UserInputDiv>
-         
-          </UserInputDiv>
-          <AddUserPara>Total Price : {numberOfShares*buyPrice}</AddUserPara>
-          <Button onClick = {addBuyHistoryHandler}>Confirm buy</Button>
-        </AddUserDiv>
-    ) : (
-     
-      <AddUserDiv>
-          {console.log(SellPrice)}
-          <CloseButton onClick={() => closeNewUserModal()}>
-            <CloseButtonImg src={x} />
-          </CloseButton>
-          <AddUserTitle>Confirmation to Sell</AddUserTitle>
-          <UserInputDiv>
-            <AddUserLabel>How many shares of {id} do you wish to sell at {SellPrice} each?</AddUserLabel>
-            <UserInput
-              value={numberOfShares}
-              onChange={(e) => {
-                setNumberOfShares(e.target.value);
-              }}
-            />
-          </UserInputDiv>
-          <UserInputDiv>
-          
-          </UserInputDiv>
-          <AddUserPara>Total Price : {numberOfShares*SellPrice}</AddUserPara>
-          <Button onClick = {addSellHistoryHandler}>Confirm sell</Button>
-        </AddUserDiv>
-
-  )}
+        {openbuy ? (
+          <AddUserDiv>
+            <CloseButton onClick={() => closeNewUserModal()}>
+              <CloseButtonImg src={x} />
+            </CloseButton>
+            <AddUserTitle>Confirmation to Buy</AddUserTitle>
+            <UserInputDiv>
+              <AddUserLabel>
+                How many shares of {id} do you wish to buy at {buyPrice} each?
+              </AddUserLabel>
+              <UserInput
+                value={numberOfShares}
+                onChange={(e) => {
+                  setNumberOfShares(e.target.value);
+                }}
+              />
+            </UserInputDiv>
+            <UserInputDiv></UserInputDiv>
+            <AddUserPara>Total Price : {numberOfShares * buyPrice}</AddUserPara>
+            <Button onClick={addBuyHistoryHandler}>Confirm buy</Button>
+          </AddUserDiv>
+        ) : (
+          <AddUserDiv>
+            <CloseButton onClick={() => closeNewUserModal()}>
+              <CloseButtonImg src={x} />
+            </CloseButton>
+            <AddUserTitle>Confirmation to Sell</AddUserTitle>
+            <UserInputDiv>
+              <AddUserLabel>
+                How many shares of {id} do you wish to sell at {SellPrice} each?
+              </AddUserLabel>
+              <UserInput
+                value={numberOfSellShares}
+                onChange={(e) => {
+                  if (e.target.value > numberOfSharesOwned) {
+                    setShowSellError(true);
+                    setNumberOfSellShares(e.target.value);
+                  } else {
+                    setShowSellError(false);
+                    setNumberOfSellShares(e.target.value);
+                  }
+                }}
+              />
+              {showSellError ? <p>Exceeds number of shares owned</p> : <> </>}
+            </UserInputDiv>
+            <UserInputDiv></UserInputDiv>
+            <AddUserPara>
+              Total Price : {numberOfSellShares * SellPrice}
+            </AddUserPara>
+            <Button
+              disabled={showSellError ? true : false}
+              onClick={addSellHistoryHandler}
+            >
+              Confirm sell
+            </Button>
+          </AddUserDiv>
+        )}
       </BuySellModal>
     </div>
   );

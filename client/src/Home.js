@@ -46,8 +46,8 @@ function Home() {
   const [runwatchlist, setRunwatchlist] = useState(false);
   const [stocklist, setStocklist] = useState([]);
   const [buyPrice, setBuyPrice] = useState(0);
-  const [newstocklist, setNewStocklist] = useState([]);
-
+  const [portfolioPrices, setPortfolioPrices] = useState([]);
+  const [portfolio, setPortfolio] = useState([]);
   const { currentUser, logout } = useAuth();
   const history = useHistory();
   const [error, setError] = useState("");
@@ -65,9 +65,15 @@ function Home() {
 
   const gain = 0;
   let stocks = [];
+  let stocksPortfolio = [];
 
   useEffect(() => {
     getUserWatchlist(email);
+    getUserPortfolio(email);
+    const interval = setInterval(() => {
+      loadData();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   async function getUserWatchlist(email) {
@@ -87,13 +93,46 @@ function Home() {
             .map((data) => {
               return { title: data.title, ticker: data.ticker };
             });
-          console.log(stocks);
+          setStocklist(stocks);
         });
-      setStocklist(stocks);
+    }
+  }
+
+  async function getUserPortfolio(email) {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    if (!query.empty) {
+      const portfolioList = db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("buyhistory")
+        .get()
+        .then(function (querySnapshot) {
+          stocksPortfolio = querySnapshot.docs
+            .map((doc) => doc.data())
+            .map((data) => {
+              return {
+                title: data.title,
+                ticker: data.ticker,
+                quantity: data.quantity,
+                pricePerShare: data.pricePerShare,
+                totalPrice: data.totalPrice,
+              };
+            });
+          setPortfolio(stocksPortfolio);
+        });
     }
   }
 
   const listItems = stocklist.map((stockname) => (
+    <li>
+      {stockname.title} : {stockname.ticker}
+    </li>
+  ));
+
+  const portfolioItems = portfolio.map((stockname) => (
     <li>
       {stockname.title} : {stockname.ticker}
     </li>
@@ -153,10 +192,27 @@ function Home() {
       });
   };
 
+  function loadData() {
+    const temp = [];
+    portfolio.map((stockname) => {
+      fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
+      )
+        .then((res) => res.json())
+        .then((res) => {
+          console.log(res.c);
+          temp.push(res.c);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+      setPortfolioPrices(temp);
+      console.log(portfolioPrices);
+    });
+  }
+
   return (
     <div className="App">
-      {console.log(stocks)}
-      {console.log(stocklist)}
       <SearchBar placeholder="Enter a Stock.." />
 
       <h1> We're going to win </h1>
@@ -172,13 +228,16 @@ function Home() {
         <p>Add to watchlist</p>
         <button onClick={addWatchlistHandler}>+</button>
       </div>
+      <p>WATCHLIST</p>
       <div>{listItems}</div>
+      <p>PORTFOLIO</p>
+      <div>{portfolioItems}</div>
       <div>
         <Link to={`/profile`}>Profile</Link>
-
         <Button variant="link" onClick={handleLogout}>
           Log Out
         </Button>
+        {/* <p>{portfolioPrices}</p> */}
       </div>
     </div>
   );
