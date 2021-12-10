@@ -13,6 +13,8 @@ import firebase from "firebase";
 import UserInput from "./components/UserInput";
 import { Button } from "react-bootstrap";
 
+
+
 const stocks = require("stock-ticker-symbol");
 
 const AddUserDiv = styled.div`

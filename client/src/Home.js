@@ -12,7 +12,20 @@ import { UserContext } from "./App";
 import { Link, useHistory } from "react-router-dom";
 import { Card, Button, Alert } from "react-bootstrap";
 import { useAuth } from "./contexts/AuthContext";
-import { db } from "./firebase";
+import { db} from "./firebase";
+import UserInput from "./components/UserInput";
+import styled from "styled-components";
+import firebase from "firebase";
+
+
+const UserInputDiv = styled.div`
+  display: flex;
+  flex-grow: 1;
+  width: calc(50%);
+  flex-direction: column;
+ 
+
+`;
 
 const customTheme = {
   paper: {
@@ -41,7 +54,8 @@ function Home() {
   const [stock, setStock] = useState(null);
   const { ticker, setTicker } = useContext(TickerContext);
   const { email, setEmail } = useContext(UserContext);
-  const [tickerquery, setTickerquery] = useState("");
+  const [newLeague, setNewLeague] = useState("");
+  const [existingLeague, setExistingLeague] = useState("");
   const [title, setTitle] = useState("");
   const [runwatchlist, setRunwatchlist] = useState(false);
   const [stocklist, setStocklist] = useState([]);
@@ -51,6 +65,10 @@ function Home() {
   const { currentUser, logout } = useAuth();
   const history = useHistory();
   const [error, setError] = useState("");
+  const [leagueList, setLeagueList] = useState([]);
+  const [showLeagueError, setShowLeagueError] = useState(false);
+  const [showExistingLeagueError, setShowExistingLeagueError] = useState(false);
+
 
   async function handleLogout() {
     setError("");
@@ -70,6 +88,7 @@ function Home() {
   useEffect(() => {
     getUserWatchlist(email);
     getUserPortfolio(email);
+    getLeagues();
     const interval = setInterval(() => {
       loadData();
     }, 5000);
@@ -138,6 +157,18 @@ function Home() {
     </li>
   ));
 
+  let leagues= []
+
+  async function getLeagues() {
+    db.collection("leagues").get().then(function(querySnapshot) {
+      querySnapshot.forEach(function(doc) {
+         leagueList.push(doc.data().leagueName.newLeague);
+         setLeagueList(leagueList);
+      });
+  });
+  }
+  
+
   const clickHandler = () => {
     fetch(
       `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
@@ -194,22 +225,72 @@ function Home() {
 
   function loadData() {
     const temp = [];
+   
     portfolio.map((stockname) => {
       fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          console.log(res.c);
+          console.log("hi");
           temp.push(res.c);
+          
         })
         .catch((err) => {
           console.log(err);
         });
-      setPortfolioPrices(temp);
+        setPortfolioPrices(temp);
       console.log(portfolioPrices);
     });
   }
+
+  async function joinNewLeagueHandler(){
+    setShowLeagueError(false);
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    if(leagueList.includes(newLeague)){
+      setShowLeagueError(true);
+    }
+    else{
+     
+      const addQuery = await db
+          .collection("leagues")
+          .doc(newLeague)
+          .set({
+            leagueName: {newLeague},
+            players: [query.docs[0].id],
+          });
+          leagueList.push(newLeague);
+          setLeagueList(leagueList);
+    }
+        
+  };
+
+
+  async function joinExistingLeagueHandler() {
+    setShowExistingLeagueError(false);
+    const query = await db
+    .collection("users")
+    .where("email", "==", email)
+    .get();
+
+
+    if(leagueList.includes(existingLeague)){
+    const updateOldQuery = await db
+        .collection("leagues")
+        .doc(existingLeague)
+        .update({
+          players: firebase.firestore.FieldValue.arrayUnion(query.docs[0].id),
+        });
+      } else{
+        setShowExistingLeagueError(true);
+      }
+
+  }
+
+
 
   return (
     <div className="App">
@@ -239,6 +320,45 @@ function Home() {
         </Button>
         {/* <p>{portfolioPrices}</p> */}
       </div>
+
+      <UserInputDiv>
+         <p>Create new league</p>
+              <UserInput
+                value={newLeague}
+                onChange={(e) => {
+                  setNewLeague((e.target.value).toString());
+                }}
+              />
+
+          <Button onClick={joinNewLeagueHandler}>Join</Button>
+              {showLeagueError ?
+           <>
+           <p>League already exists</p> 
+          
+           </> 
+              : <>
+               </>}
+            
+
+          <p>Join existing league</p>
+              <UserInput
+                value={existingLeague}
+                onChange={(e) => {
+                  setExistingLeague(e.target.value);
+                }}
+              />  
+               <Button onClick={joinExistingLeagueHandler}>Join</Button>  
+
+               {showExistingLeagueError ?
+           <>
+           <p>League does not exist</p> 
+           </> 
+              : <>
+               </>}
+            
+
+      </UserInputDiv>
+
     </div>
   );
 }
