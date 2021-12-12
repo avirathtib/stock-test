@@ -155,6 +155,7 @@ function Details() {
           quantity: Number(numberOfShares),
           pricePerShare: buyPrice,
           totalPrice: numberOfShares * buyPrice,
+          profit: 0,
         });
       setShareOwned(true);
     } else {
@@ -235,8 +236,12 @@ function Details() {
         quantity: numberOfSharesOwned - Number(numberOfSellShares),
         totalPrice:
           latestPrice * (numberOfSharesOwned - Number(numberOfSellShares)),
+        profit : numberOfSellShares * (SellPrice - latestPrice),
+          
       });
   };
+
+  
 
   return (
     <div>
@@ -339,6 +344,7 @@ function Details() {
                   } else {
                     setShowSellError(false);
                     setNumberOfSellShares(e.target.value);
+                   
                   }
                 }}
               />

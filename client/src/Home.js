@@ -1,6 +1,5 @@
 import "./App.css";
-import Details from "./Details";
-
+import Details from "./Details"
 import React, { useState, useEffect, useContext, useLayoutEffect } from "react";
 import { TickerSymbolSearch } from "ticker-symbol-search";
 import yahooFinance from "yahoo-finance2";
@@ -66,6 +65,7 @@ function Home() {
   const history = useHistory();
   const [error, setError] = useState("");
   const [leagueList, setLeagueList] = useState([]);
+  const [personalLeagueList, setPersonalLeagueList] = useState([]);
   const [showLeagueError, setShowLeagueError] = useState(false);
   const [showExistingLeagueError, setShowExistingLeagueError] = useState(false);
 
@@ -89,10 +89,11 @@ function Home() {
     getUserWatchlist(email);
     getUserPortfolio(email);
     getLeagues();
-    const interval = setInterval(() => {
-      loadData();
-    }, 5000);
-    return () => clearInterval(interval);
+    getPersonalLeagueList(email);
+    // const interval = setInterval(() => {
+    //   loadData();
+    // }, 5000);
+    //return () => clearInterval(interval);
   }, []);
 
   async function getUserWatchlist(email) {
@@ -145,6 +146,43 @@ function Home() {
     }
   }
 
+  let leagues= []
+
+  async function getLeagues() {
+    db.collection("leagues").get().then(function(querySnapshot) {
+      querySnapshot.forEach(function(doc) {
+         leagueList.push(doc.data().leagueName.newLeague);
+         setLeagueList(leagueList);
+      });
+  });
+  }
+  
+  let newtemp=[];
+  async function getPersonalLeagueList(email) {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    if (!query.empty) {
+      const portfolioList = db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("leaguesEntered")
+        .get()
+        .then(function (querySnapshot) {
+          newtemp = querySnapshot.docs
+            .map((doc) => doc.data())
+            .map((data) => {
+              return {
+                name: data.name,
+              };
+            });
+          setPersonalLeagueList(newtemp)
+        });
+    }
+
+    console.log(personalLeagueList)
+  }
   const listItems = stocklist.map((stockname) => (
     <li>
       {stockname.title} : {stockname.ticker}
@@ -157,16 +195,13 @@ function Home() {
     </li>
   ));
 
-  let leagues= []
+  const personalLeagueItems =  personalLeagueList.map((league) => (
+    <li>
+      <Link to={`/leagues/${league.name}`}>{league.name}</Link>
+     
+    </li>
+  ));
 
-  async function getLeagues() {
-    db.collection("leagues").get().then(function(querySnapshot) {
-      querySnapshot.forEach(function(doc) {
-         leagueList.push(doc.data().leagueName.newLeague);
-         setLeagueList(leagueList);
-      });
-  });
-  }
   
 
   const clickHandler = () => {
@@ -224,24 +259,26 @@ function Home() {
   };
 
   function loadData() {
-    const temp = [];
-   
+    setPortfolioPrices([]);
+    let temp = [];
     portfolio.map((stockname) => {
       fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          console.log("hi");
           temp.push(res.c);
-          
+          setPortfolioPrices(temp);
+          console.log(temp);
+         
         })
         .catch((err) => {
           console.log(err);
         });
-        setPortfolioPrices(temp);
-      console.log(portfolioPrices);
+      
     });
+   
+   
   }
 
   async function joinNewLeagueHandler(){
@@ -264,6 +301,14 @@ function Home() {
           });
           leagueList.push(newLeague);
           setLeagueList(leagueList);
+
+          const addQuery2 = await db
+          .collection("users")
+          .doc(query.docs[0].id)
+          .collection("leaguesEntered")
+          .add({
+           name: newLeague ,
+          });
     }
         
   };
@@ -283,6 +328,14 @@ function Home() {
         .doc(existingLeague)
         .update({
           players: firebase.firestore.FieldValue.arrayUnion(query.docs[0].id),
+        });
+
+        const addQuery2 = await db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("leaguesEntered")
+        .add({
+         name: existingLeague ,
         });
       } else{
         setShowExistingLeagueError(true);
@@ -313,6 +366,11 @@ function Home() {
       <div>{listItems}</div>
       <p>PORTFOLIO</p>
       <div>{portfolioItems}</div>
+      <p>LEAGUES</p>
+      <div>{personalLeagueItems}</div>
+
+
+     
       <div>
         <Link to={`/profile`}>Profile</Link>
         <Button variant="link" onClick={handleLogout}>

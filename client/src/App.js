@@ -8,6 +8,7 @@ import ForgotPassword from "./ForgotPassword";
 import { AuthProvider } from "./contexts/AuthContext";
 import PrivateRoute from "./PrivateRoute";
 import Profile from "./Profile";
+import LeaguePage from "./LeaguePage";
 
 export const TickerContext = createContext();
 export const UserContext = createContext();
@@ -32,6 +33,7 @@ export default function App() {
               <Route path="/:id">
                 <Details />
               </Route>
+              <Route path="/leagues/:id/jn"component={LeaguePage}></Route> 
             </Switch>
           </AuthProvider>
         </Router>
