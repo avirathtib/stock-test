@@ -209,7 +209,6 @@ function Details() {
       .collection("buyhistory")
       .get()
       .then(function (querySnapshot) {
-        console.log(query.docs[0].id);
         querySnapshot.forEach(function (doc) {
           if (doc.data().title == id) {
             setNumberOfSharesOwned(doc.data().quantity);

@@ -68,6 +68,7 @@ function Home() {
   const [personalLeagueList, setPersonalLeagueList] = useState([]);
   const [showLeagueError, setShowLeagueError] = useState(false);
   const [showExistingLeagueError, setShowExistingLeagueError] = useState(false);
+  const [playerName, setPlayerName] = useState("");
 
 
   async function handleLogout() {
@@ -90,10 +91,11 @@ function Home() {
     getUserPortfolio(email);
     getLeagues();
     getPersonalLeagueList(email);
-    // const interval = setInterval(() => {
-    //   loadData();
-    // }, 5000);
-    //return () => clearInterval(interval);
+    getUserByEmail(email);
+    const interval = setInterval(() => {
+      loadData();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   async function getUserWatchlist(email) {
@@ -124,6 +126,7 @@ function Home() {
       .where("email", "==", email)
       .get();
     if (!query.empty) {
+
       const portfolioList = db
         .collection("users")
         .doc(query.docs[0].id)
@@ -146,15 +149,31 @@ function Home() {
     }
   }
 
+  async function getUserByEmail(email) {
+   
+    const query = await db.collection('users').where('email', '==', email).get();
+    console.log(query)
+    if(!query.empty) {
+        const snapshot = query.docs[0];
+        const data = snapshot.data();
+        setPlayerName(data.name);
+
+    } else {
+        console.log("Error")
+    }
+}
+
   let leagues= []
 
   async function getLeagues() {
     db.collection("leagues").get().then(function(querySnapshot) {
       querySnapshot.forEach(function(doc) {
-         leagueList.push(doc.data().leagueName.newLeague);
-         setLeagueList(leagueList);
+      
+         leagues.push(doc.data().leagueName);
+         setLeagueList(leagues);
       });
   });
+
   }
   
   let newtemp=[];
@@ -257,24 +276,26 @@ function Home() {
         console.log(response);
       });
   };
-
+  let temporaryPrices = [];
   function loadData() {
-    setPortfolioPrices([]);
-    let temp = [];
-    portfolio.map((stockname) => {
+    // setPortfolioPrices([]);
+    temporaryPrices = [];
+    temporaryPrices = portfolio.map((stockname) => {
       fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          temp.push(res.c);
-          setPortfolioPrices(temp);
-          console.log(temp);
+          console.log(res.c)
+          return {price: res.c}
+          
          
         })
         .catch((err) => {
           console.log(err);
         });
+        setPortfolioPrices(temporaryPrices);
+        console.log(portfolioPrices);
       
     });
    
@@ -282,6 +303,7 @@ function Home() {
   }
 
   async function joinNewLeagueHandler(){
+    let templist = leagueList;
     setShowLeagueError(false);
     const query = await db
       .collection("users")
@@ -291,16 +313,23 @@ function Home() {
       setShowLeagueError(true);
     }
     else{
-     
       const addQuery = await db
           .collection("leagues")
           .doc(newLeague)
           .set({
-            leagueName: {newLeague},
-            players: [query.docs[0].id],
+            leagueName: newLeague,
+            
           });
-          leagueList.push(newLeague);
-          setLeagueList(leagueList);
+
+          const queryForPlayersCollection = await db
+          .collection("leagues")
+          .doc(newLeague)
+          .collection("players")
+          .add({
+            id: query.docs[0].id,
+            name: playerName,
+          });
+          setLeagueList({...leagueList, newLeague});
 
           const addQuery2 = await db
           .collection("users")
@@ -309,6 +338,7 @@ function Home() {
           .add({
            name: newLeague ,
           });
+
     }
         
   };
@@ -326,10 +356,12 @@ function Home() {
     const updateOldQuery = await db
         .collection("leagues")
         .doc(existingLeague)
-        .update({
-          players: firebase.firestore.FieldValue.arrayUnion(query.docs[0].id),
-        });
-
+        .collection("players")
+        .add({
+          id: query.docs[0].id,
+          name : playerName
+         });
+       
         const addQuery2 = await db
         .collection("users")
         .doc(query.docs[0].id)
@@ -353,7 +385,7 @@ function Home() {
       <p>{email}</p>
       <button onClick={clickHandler}>Click Me Now Please</button>
       <p>{ticker}</p>
-      <Link to={`/${ticker}`}>View Stock</Link>
+      <Link to={`/stocks/${ticker}`}>View Stock</Link>
       <p>{stock}</p>
       <button onClick={clickBuyHandler}>Buy</button>
       <button onClick={clickSellHandler}>Sell</button>

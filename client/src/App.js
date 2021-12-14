@@ -30,10 +30,10 @@ export default function App() {
               <Route path="/home">
                 <Home />
               </Route>
-              <Route path="/:id">
-                <Details />
+              <Route path="/stocks/:id">
+              <Details />
               </Route>
-              <Route path="/leagues/:id/jn"component={LeaguePage}></Route> 
+              <Route path="/leagues/:leagueName"component={LeaguePage}></Route> 
             </Switch>
           </AuthProvider>
         </Router>
