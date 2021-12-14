@@ -54,7 +54,7 @@ function SearchBar({ placeholder }) {
             return (
               <a 
                className="dataItem"  target="_blank">
-                <Link to={`/${value.name}` }>{value.name}</Link>
+                <Link to={`/stocks/${value.name}` }>{value.name}</Link>
               </a>
 
             );

@@ -13,7 +13,7 @@ import firebase from "firebase";
 import UserInput from "./components/UserInput";
 import { Button } from "react-bootstrap";
 
-
+import { send } from 'emailjs-com';
 
 const stocks = require("stock-ticker-symbol");
 
@@ -72,6 +72,13 @@ function Details() {
   const [SellPrice, setSellPrice] = useState(0);
   const [latestPrice, setLatestPrice] = useState(0);
   const [openbuy, setOpenBuy] = useState(false);
+  const [playerName, setPlayerName] = useState("");
+  const [toSend, setToSend] = useState({
+    playerName: 'defaultName',
+    numberOfShares: 10,
+    ticker : 'CHPT',
+  });
+
   const url =
     "https://finnhub.io/api/v1/quote?symbol=AAPL&token=c5saqfaad3ia8bfblt0g";
 
@@ -81,6 +88,7 @@ function Details() {
     console.log(email);
     setTicker(stocks.searchName(id)[0].ticker);
     checkOwnership();
+    getUserByEmail(email) 
     // everyBuyUpdate();
   }, []);
 
@@ -92,6 +100,19 @@ function Details() {
     setShowNewUserModal(false);
   }
 
+  async function getUserByEmail(email) {
+   
+    const query = await db.collection('users').where('email', '==', email).get();
+    console.log(query)
+    if(!query.empty) {
+        const snapshot = query.docs[0];
+        const data = snapshot.data();
+        setPlayerName(data.name);
+
+    } else {
+        console.log("Error")
+    }
+}
   const addWatchlistHandler = async () => {
     const query = await db
       .collection("users")
@@ -109,14 +130,25 @@ function Details() {
   };
 
   function clickBuyHandler() {
-    console.log(ticker);
+    console.log(numberOfShares)
+    setToSend({playerName: playerName,
+    numberOfShares: numberOfShares,
+    ticker : ticker,});
+
+    console.log(toSend);
     fetch(
       `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
     )
       .then((res) => res.json())
       .then((res) => {
         setBuyPrice(res.c);
-        console.log(res.c);
+        send(
+          'service_5xpu2bp',
+          'template_jqlnb63',
+          toSend,
+          'user_nfA4g1TsEgaJMemoNN6zX'
+        )
+
       })
       .catch((err) => {
         console.log(err);
