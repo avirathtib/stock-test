@@ -56,12 +56,7 @@ function Home() {
   const [runwatchlist, setRunwatchlist] = useState(false);
   const [stocklist, setStocklist] = useState([]);
   const [buyPrice, setBuyPrice] = useState(0);
-  const [portfolioPrices, setPortfolioPrices] = useState([
-    {
-      ticker: "MVIS",
-      price: 0,
-    },
-  ]);
+  const [portfolioPrices, setPortfolioPrices] = useState([]);
   const [portfolio, setPortfolio] = useState([
     {
       title: "Microvision, Inc.",
@@ -104,11 +99,20 @@ function Home() {
 
   useEffect(() => {
     getUserWatchlist(email);
-    getUserPortfolio(email);
+   getUserPortfolio(email);
     getLeagues();
     getPersonalLeagueList(email);
     getUserByEmail(email);
   }, []);
+
+
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [portfolio]);
 
   async function getUserWatchlist(email) {
     const query = await db
@@ -131,39 +135,6 @@ function Home() {
         });
     }
   }
-
-  async function getUserPortfolio(email) {
-    const query = await db
-      .collection("users")
-      .where("email", "==", email)
-      .get();
-    if (!query.empty) {
-      const portfolioList = db
-        .collection("users")
-        .doc(query.docs[0].id)
-        .collection("buyhistory")
-        .get()
-        .then(function (querySnapshot) {
-          stocksPortfolio = querySnapshot.docs
-            .map((doc) => doc.data())
-            .map((data) => {
-              return {
-                title: data.title,
-                ticker: data.ticker,
-                quantity: data.quantity,
-                pricePerShare: data.pricePerShare,
-                totalPrice: data.totalPrice,
-              };
-            });
-          setPortfolio(stocksPortfolio);
-        });
-    }
-    const interval = setInterval(() => {
-      loadData();
-    }, 10000);
-    return () => clearInterval(interval);
-  }
-
   async function getUserByEmail(email) {
     const query = await db
       .collection("users")
@@ -187,9 +158,12 @@ function Home() {
       .then(function (querySnapshot) {
         querySnapshot.forEach(function (doc) {
           leagues.push(doc.data().leagueName);
+          
           setLeagueList(leagues);
         });
       });
+
+     
   }
 
   let newtemp = [];
@@ -290,6 +264,44 @@ function Home() {
       });
   };
 
+
+
+  async function getUserPortfolio(email) {
+    const query = await db
+      .collection("users")
+      .where("email", "==", email)
+      .get();
+    if (!query.empty) {
+      const portfolioList = db
+        .collection("users")
+        .doc(query.docs[0].id)
+        .collection("buyhistory")
+        .get()
+        .then(function (querySnapshot) {
+          stocksPortfolio = querySnapshot.docs
+            .map((doc) => doc.data())
+            .map((data) => {
+              return {
+                title: data.title,
+                ticker: data.ticker,
+                quantity: data.quantity,
+                pricePerShare: data.pricePerShare,
+                totalPrice: data.totalPrice,
+              };
+            });
+          setPortfolio(stocksPortfolio);
+         
+        });
+        
+    }
+   
+    // const interval = setInterval(() => { 
+    //   console.log(portfolio)
+    //   loadData();
+    // }, 10000);
+    // return () => clearInterval(interval);
+  }
+
   // async function loadData() {
   //   // console.log(portfolioList);
   //   // let tempPortfolio = [];
@@ -330,22 +342,24 @@ function Home() {
   // }
 
   const loadData = async () => {
-    console.log("Start");
 
-    const promises = portfolio.map(async (stockname) => {
-      const stock = await fetch(
+  let tempPrices = [];
+     portfolio.map(async (stockname) => {
+       await fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          return res.c;
+          tempPrices.push(res.c);
+         
         });
     });
+    setPortfolioPrices(tempPrices)
 
-    const allStocks = await Promise.all(promises);
-    console.log(allStocks);
+    console.log(portfolioPrices)
+    // console.log("End");
 
-    console.log("End");
+ 
   };
 
   async function joinNewLeagueHandler() {
