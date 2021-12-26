@@ -57,22 +57,8 @@ function Home() {
   const [stocklist, setStocklist] = useState([]);
   const [buyPrice, setBuyPrice] = useState(0);
   const [portfolioPrices, setPortfolioPrices] = useState([]);
-  const [portfolio, setPortfolio] = useState([
-    {
-      title: "Microvision, Inc.",
-      ticker: "MVIS",
-      quantity: 0,
-      pricePerShare: 0.0,
-      totalPrice: 0,
-    },
-    {
-      title: "Advanced Micro Devices, Inc.",
-      ticker: "AMD",
-      quantity: 0,
-      pricePerShare: 0.0,
-      totalPrice: 0,
-    },
-  ]);
+  const [portfolioPricesObj, setPortfolioPricesObj] = useState([]);
+  const [portfolio, setPortfolio] = useState([]);
   const { currentUser, logout } = useAuth();
   const history = useHistory();
   const [error, setError] = useState("");
@@ -110,9 +96,13 @@ function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
       loadData();
-    }, 5000);
+    }, 10000);
     return () => clearInterval(interval);
-  }, [portfolio]);
+  }, [portfolioPrices]);
+
+  // useEffect(() => {
+  //   console.log(portfolioPrices)
+  // });
 
   async function getUserWatchlist(email) {
     const query = await db
@@ -204,53 +194,20 @@ function Home() {
     </li>
   ));
 
+  const portfolioPricesItems = portfolioPrices.map((stockprice) => (
+    <li>
+     {stockprice}
+    </li>
+  ));
+
+
   const personalLeagueItems = personalLeagueList.map((league) => (
     <li>
       <Link to={`/leagues/${league.name}`}>{league.name}</Link>
     </li>
   ));
 
-  const clickHandler = () => {
-    fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        setStock(res.c);
 
-        <Redirect to={ticker} />;
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
-
-  const clickBuyHandler = () => {
-    fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        setBuyPrice(res.c);
-        console.log(res.c);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
-
-  const clickSellHandler = () => {
-    fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=c5saqfaad3ia8bfblt0g`
-    )
-      .then((res) => res.json())
-      .then((res) => {
-        console.log(res.c - buyPrice);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
 
   const addWatchlistHandler = () => {
     setRunwatchlist(!runwatchlist);
@@ -295,70 +252,30 @@ function Home() {
         
     }
    
-    // const interval = setInterval(() => { 
-    //   console.log(portfolio)
-    //   loadData();
-    // }, 10000);
-    // return () => clearInterval(interval);
-  }
+      }
 
-  // async function loadData() {
-  //   // console.log(portfolioList);
-  //   // let tempPortfolio = [];
-  //   // let temporaryPrices = [];
-  //   // portfolio.map((stockname) => {
-  //   //   fetch(
-  //   //     `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
-  //   //   )
-  //   //     .then((res) => res.json())
-  //   //     .then((res) => {
-  //   //       temporaryPrices.push(res.c);
-  //   //       const tempObject = {
-  //   //         ticker: stockname.ticker,
-  //   //         price: res.c,
-  //   //       };
-  //   //       console.log(tempObject);
-  //   //       tempPortfolio.push(tempObject);
-  //   //     })
-  //   //     .catch((err) => {
-  //   //       console.log(err);
-  //   //     });
-  //   // });
-  //   // setPortfolioPrices(tempPortfolio);
-  //   // console.log(portfolioPrices);
-  //   // const stockPromises = portfolio.map(async (stockname) => {});
-  //   console.log(portfolio);
-  //   const stocksData = await Promise.all(
-  //     portfolio.map(async (stockname) => {
-  //       await fetch(
-  //         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
-  //       )
-  //         .then((res) => res.json())
-  //         .then((res) => {
-  //           console.log(res.c);
-  //         });
-  //     })
-  //   );
-  // }
+ 
 
   const loadData = async () => {
 
   let tempPrices = [];
+  let tempPriceForObj = [];
      portfolio.map(async (stockname) => {
        await fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          tempPrices.push(res.c);
          
+          tempPrices.push(res.c);
+          tempPriceForObj.push({"ticker": stockname.ticker, "price": res.c});
         });
     });
     setPortfolioPrices(tempPrices)
-
-    console.log(portfolioPrices)
-    // console.log("End");
-
+    setPortfolioPricesObj(tempPriceForObj)
+    console.log("portfolioprices");
+    console.log(portfolioPrices);
+    console.log(portfolioPricesObj);
  
   };
 
@@ -431,21 +348,14 @@ function Home() {
 
       <h1> We're going to win </h1>
       <p>{email}</p>
-      <button onClick={clickHandler}>Click Me Now Please</button>
-      <p>{ticker}</p>
-      <Link to={`/stocks/${ticker}`}>View Stock</Link>
-      <p>{stock}</p>
-      <button onClick={clickBuyHandler}>Buy</button>
-      <button onClick={clickSellHandler}>Sell</button>
-      <p>Stock return: {gain} </p>
-      <div>
-        <p>Add to watchlist</p>
-        <button onClick={addWatchlistHandler}>+</button>
-      </div>
+      
+      
       <p>WATCHLIST</p>
       <div>{listItems}</div>
       <p>PORTFOLIO</p>
       <div>{portfolioItems}</div>
+      <p>PORTFOLIO PRICES</p>
+      <div>{portfolioPricesItems}</div>
       <p>LEAGUES</p>
       <div>{personalLeagueItems}</div>
 
@@ -454,7 +364,7 @@ function Home() {
         <Button variant="link" onClick={handleLogout}>
           Log Out
         </Button>
-        {/* <p>{portfolioPrices}</p> */}
+     
       </div>
 
       <UserInputDiv>
