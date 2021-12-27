@@ -93,16 +93,16 @@ function Home() {
 
 
 
+
   useEffect(() => {
     const interval = setInterval(() => {
       loadData();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [portfolioPrices]);
 
-  // useEffect(() => {
-  //   console.log(portfolioPrices)
-  // });
+
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [portfolioPricesObj]);
+
 
   async function getUserWatchlist(email) {
     const query = await db
@@ -188,15 +188,13 @@ function Home() {
     </li>
   ));
 
-  const portfolioItems = portfolio.map((stockname) => (
+  const newPrices = [...portfolioPricesObj];
+  
+  let portfolioItems = newPrices.map((stockname) => (
     <li>
-      {stockname.title} : {stockname.ticker}
-    </li>
-  ));
-
-  const portfolioPricesItems = portfolioPrices.map((stockprice) => (
-    <li>
-     {stockprice}
+      {stockname.title} : {stockname.ticker} 
+      {stockname.currentprice}
+      Return : {stockname.return}
     </li>
   ));
 
@@ -257,8 +255,6 @@ function Home() {
  
 
   const loadData = async () => {
-
-  let tempPrices = [];
   let tempPriceForObj = [];
      portfolio.map(async (stockname) => {
        await fetch(
@@ -266,17 +262,13 @@ function Home() {
       )
         .then((res) => res.json())
         .then((res) => {
-         
-          tempPrices.push(res.c);
-          tempPriceForObj.push({"ticker": stockname.ticker, "price": res.c});
+          tempPriceForObj.push({"title" : stockname.title, "ticker": stockname.ticker, "currentprice": res.c, "return" : (res.c - stockname.pricePerShare)* stockname.quantity});
         });
     });
-    setPortfolioPrices(tempPrices)
+
     setPortfolioPricesObj(tempPriceForObj)
-    console.log("portfolioprices");
-    console.log(portfolioPrices);
     console.log(portfolioPricesObj);
- 
+    
   };
 
   async function joinNewLeagueHandler() {
@@ -354,8 +346,16 @@ function Home() {
       <div>{listItems}</div>
       <p>PORTFOLIO</p>
       <div>{portfolioItems}</div>
-      <p>PORTFOLIO PRICES</p>
-      <div>{portfolioPricesItems}</div>
+    {/* <div>{
+      portfolioPricesObj.map((stockname) => (
+        <li>
+          {stockname.title} : {stockname.ticker} 
+          {stockname.currentprice}
+          Return : {stockname.return}
+        </li>
+      ))
+      
+      }</div> */}
       <p>LEAGUES</p>
       <div>{personalLeagueItems}</div>
 
