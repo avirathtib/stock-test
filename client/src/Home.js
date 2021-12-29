@@ -15,12 +15,37 @@ import { db } from "./firebase";
 import UserInput from "./components/UserInput";
 import styled from "styled-components";
 import firebase from "firebase";
+import x from "./images/x.png";
+import BuySellModal from "./components/BuySellModal";
+import CloseButton from "./components/CloseModalButton";
 
 const UserInputDiv = styled.div`
   display: flex;
   flex-grow: 1;
   width: calc(50%);
   flex-direction: column;
+`;
+
+const AddUserDiv = styled.div`
+  align-items: center;
+  justify-content: center;
+`;
+
+const CloseButtonImg = styled.img`
+  max-width: 40%;
+  object-fit: contain;
+`;
+
+const AddUserTitle = styled.h1`
+  width: 100%;
+  font-size: 2.5em;
+  margin: 0px;
+  color: #080f14;
+  text-align: center;
+`;
+
+const AddUserLabel = styled.p`
+  margin-bottom: 2px;
 `;
 
 const customTheme = {
@@ -49,7 +74,9 @@ const customTheme = {
 function Home() {
   const [stock, setStock] = useState(null);
   const { ticker, setTicker } = useContext(TickerContext);
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
   const { email, setEmail } = useContext(UserContext);
+  const [numberOfWeeks, setNumberOfWeeks] = useState("");
   const [newLeague, setNewLeague] = useState("");
   const [existingLeague, setExistingLeague] = useState("");
   const [title, setTitle] = useState("");
@@ -83,26 +110,31 @@ function Home() {
   let stocks = [];
   let stocksPortfolio = [];
 
+  function openNewUserModal() {
+    setShowNewUserModal(true);
+  }
+
+  function closeNewUserModal() {
+    setShowNewUserModal(false);
+  }
+
   useEffect(() => {
+    console.log("Hello from the first useEffect");
     getUserWatchlist(email);
-   getUserPortfolio(email);
+    getUserPortfolio(email);
     getLeagues();
     getPersonalLeagueList(email);
     getUserByEmail(email);
   }, []);
 
-
-
-
   useEffect(() => {
+    console.log(portfolioPricesObj);
+    console.log("Hello from the second useEffect");
     const interval = setInterval(() => {
       loadData();
-
-
     }, 5000);
     return () => clearInterval(interval);
   }, [portfolioPricesObj]);
-
 
   async function getUserWatchlist(email) {
     const query = await db
@@ -148,12 +180,10 @@ function Home() {
       .then(function (querySnapshot) {
         querySnapshot.forEach(function (doc) {
           leagues.push(doc.data().leagueName);
-          
+
           setLeagueList(leagues);
         });
       });
-
-     
   }
 
   let newtemp = [];
@@ -188,24 +218,11 @@ function Home() {
     </li>
   ));
 
-  const newPrices = [...portfolioPricesObj];
-  
-  let portfolioItems = newPrices.map((stockname) => (
-    <li>
-      {stockname.title} : {stockname.ticker} 
-      {stockname.currentprice}
-      Return : {stockname.return}
-    </li>
-  ));
-
-
   const personalLeagueItems = personalLeagueList.map((league) => (
     <li>
       <Link to={`/leagues/${league.name}`}>{league.name}</Link>
     </li>
   ));
-
-
 
   const addWatchlistHandler = () => {
     setRunwatchlist(!runwatchlist);
@@ -218,8 +235,6 @@ function Home() {
         console.log(response);
       });
   };
-
-
 
   async function getUserPortfolio(email) {
     const query = await db
@@ -245,30 +260,31 @@ function Home() {
               };
             });
           setPortfolio(stocksPortfolio);
-         
         });
-        
     }
-   
-      }
+  }
 
- 
-
-  const loadData = async () => {
-  let tempPriceForObj = [];
-     portfolio.map(async (stockname) => {
-       await fetch(
+  const loadData = () => {
+    loadData.counter = 0;
+    let tempPriceForObj = [];
+    portfolio.map((stockname) => {
+      fetch(
         `https://finnhub.io/api/v1/quote?symbol=${stockname.ticker}&token=c5saqfaad3ia8bfblt0g`
       )
         .then((res) => res.json())
         .then((res) => {
-          tempPriceForObj.push({"title" : stockname.title, "ticker": stockname.ticker, "currentprice": res.c, "return" : (res.c - stockname.pricePerShare)* stockname.quantity});
+          tempPriceForObj.push({
+            title: stockname.title,
+            ticker: stockname.ticker,
+            currentprice: res.c,
+            return: (res.c - stockname.pricePerShare) * stockname.quantity,
+          });
         });
     });
 
-    setPortfolioPricesObj(tempPriceForObj)
+    setPortfolioPricesObj(tempPriceForObj);
+
     console.log(portfolioPricesObj);
-    
   };
 
   async function joinNewLeagueHandler() {
@@ -283,6 +299,7 @@ function Home() {
     } else {
       const addQuery = await db.collection("leagues").doc(newLeague).set({
         leagueName: newLeague,
+        time: numberOfWeeks,
       });
 
       const queryForPlayersCollection = await db
@@ -340,22 +357,20 @@ function Home() {
 
       <h1> We're going to win </h1>
       <p>{email}</p>
-      
-      
+
       <p>WATCHLIST</p>
       <div>{listItems}</div>
       <p>PORTFOLIO</p>
-      <div>{portfolioItems}</div>
-    {/* <div>{
-      portfolioPricesObj.map((stockname) => (
-        <li>
-          {stockname.title} : {stockname.ticker} 
-          {stockname.currentprice}
-          Return : {stockname.return}
-        </li>
-      ))
-      
-      }</div> */}
+      {/* {portfolioPricesObj &&
+        portfolioPricesObj.map((stockname) => {
+          console.log(stockname);
+          return (
+            <div>
+              <p>{stockname}</p>
+            </div>
+          );
+        })} */}
+
       <p>LEAGUES</p>
       <div>{personalLeagueItems}</div>
 
@@ -364,7 +379,6 @@ function Home() {
         <Button variant="link" onClick={handleLogout}>
           Log Out
         </Button>
-     
       </div>
 
       <UserInputDiv>
@@ -376,7 +390,7 @@ function Home() {
           }}
         />
 
-        <Button onClick={joinNewLeagueHandler}>Join</Button>
+        <Button onClick={openNewUserModal}>Join</Button>
         {showLeagueError ? (
           <>
             <p>League already exists</p>
@@ -402,6 +416,44 @@ function Home() {
           <></>
         )}
       </UserInputDiv>
+      <BuySellModal
+        isOpen={showNewUserModal}
+        onRequestClose={closeNewUserModal}
+        style={{
+          overlay: {
+            backgroundColor: "rgba(0,0,0,0.3)",
+          },
+          content: {
+            backgroundColor: "#fff",
+            borderRadius: 0,
+            top: "50%",
+            left: "50%",
+            right: "auto",
+            bottom: "auto",
+            marginRight: "-50%",
+            transform: "translate(-50%, -50%)",
+            width: "420px",
+            height: "513px",
+          },
+        }}
+      >
+        <AddUserDiv>
+          <CloseButton onClick={() => closeNewUserModal()}>
+            <CloseButtonImg src={x} />
+          </CloseButton>
+          <AddUserTitle>Add Timing</AddUserTitle>
+          <UserInputDiv>
+            <AddUserLabel>Number of Weeks</AddUserLabel>
+            <UserInput
+              value={numberOfWeeks}
+              onChange={(e) => {
+                setNumberOfWeeks(e.target.value);
+              }}
+            />
+          </UserInputDiv>
+          <Button onClick={joinNewLeagueHandler}>Confirm Timing</Button>
+        </AddUserDiv>
+      </BuySellModal>
     </div>
   );
 }
